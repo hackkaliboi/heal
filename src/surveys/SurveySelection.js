@@ -19,6 +19,7 @@ const SurveySelection = () => {
                             <a href="/" className="text-gray-500 hover:text-indigo-600 text-sm transition-colors">Home</a>
                             <a href="/" className="text-gray-500 hover:text-indigo-600 text-sm transition-colors">About</a>
                             <a href="/" className="text-gray-500 hover:text-indigo-600 text-sm transition-colors">Contact</a>
+                            <Link to="/dashboard" className="text-gray-500 hover:text-indigo-600 text-sm transition-colors">Dashboard</Link>
                         </nav>
                     </div>
                 </header>

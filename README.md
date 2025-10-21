@@ -39,6 +39,47 @@ Instead, it will copy all the configuration files and the transitive dependencie
 
 You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
 
+## Supabase Setup
+
+To use the dashboard and response tracking features, you need to set up a Supabase project:
+
+1. Create a Supabase account at [https://supabase.io/](https://supabase.io/)
+2. Create a new project
+3. Copy your project URL and anon key from the Supabase dashboard
+4. Create a `.env` file in the project root with the following variables:
+   ```
+   REACT_APP_SUPABASE_URL=your_supabase_project_url
+   REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+5. Create a table named `survey_responses` in your Supabase database with the following schema:
+   ```sql
+   CREATE TABLE survey_responses (
+     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+     survey_type VARCHAR(50),
+     responses JSONB,
+     created_at TIMESTAMP DEFAULT NOW()
+   );
+   ```
+
+**Important**: The application requires valid Supabase credentials to function properly. Without them, you will see "Failed to fetch survey data" errors.
+
+## Dashboard Access
+
+After setting up Supabase and running the application, you can access the dashboard at:
+- [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
+
+The dashboard is protected with basic authentication:
+- **Username:** admin
+- **Password:** password
+
+You can change these credentials in the `src/authContext.js` file.
+
+The dashboard allows you to:
+- View all survey responses
+- Filter responses by survey type
+- View detailed responses
+- See response statistics
+
 ## Learn More
 
 You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).

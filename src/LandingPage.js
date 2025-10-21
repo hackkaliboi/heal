@@ -18,6 +18,7 @@ function LandingPage() {
               <a href="#" className="text-gray-500 hover:text-indigo-600 text-sm transition-colors">Home</a>
               <a href="#" className="text-gray-500 hover:text-indigo-600 text-sm transition-colors">About</a>
               <a href="#" className="text-gray-500 hover:text-indigo-600 text-sm transition-colors">Contact</a>
+              <Link to="/dashboard" className="text-gray-500 hover:text-indigo-600 text-sm transition-colors">Dashboard</Link>
             </nav>
           </div>
         </header>
@@ -28,7 +29,7 @@ function LandingPage() {
         }}>
           <div className="max-w-3xl">
             <div className="inline-block bg-indigo-50 text-indigo-700 text-xs font-medium px-3 py-1 rounded-full mb-6">
-              Healthcare Research Initiative
+              Healthcare Engagement & Access Link
             </div>
             <h1 className="text-4xl md:text-5xl font-semibold text-gray-900 mb-6 leading-tight">
               Transforming Healthcare Through Community Insights
@@ -146,6 +147,7 @@ function LandingPage() {
                 <li><a href="#" className="hover:text-indigo-600 transition-colors text-sm">About Us</a></li>
                 <li><a href="#" className="hover:text-indigo-600 transition-colors text-sm">Surveys</a></li>
                 <li><a href="#" className="hover:text-indigo-600 transition-colors text-sm">Contact</a></li>
+                <li><Link to="/dashboard" className="hover:text-indigo-600 transition-colors text-sm">Dashboard</Link></li>
               </ul>
             </div>
 

@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
 
 const BaseSurvey = ({ entity, questions, entityPath }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [selectedOptions, setSelectedOptions] = useState([]); // For multiple selections
+  const [transitioning, setTransitioning] = useState(false); // For transition animation
   const navigate = useNavigate();
+  const contentRef = useRef(null);
 
   const currentQuestion = questions[currentQuestionIndex];
   const totalQuestions = questions.length;
@@ -60,10 +63,14 @@ const BaseSurvey = ({ entity, questions, entityPath }) => {
     // Move to next question or finish survey
     const nextIndex = getNextQuestionIndex(currentQuestionIndex);
     if (nextIndex < totalQuestions) {
-      setCurrentQuestionIndex(nextIndex);
+      setTransitioning(true);
+      setTimeout(() => {
+        setCurrentQuestionIndex(nextIndex);
+        setTransitioning(false);
+      }, 300);
     } else {
-      // Survey completed - in a real app, you would submit the answers here
-      console.log('Survey completed:', newAnswers);
+      // Survey completed - save responses to Supabase
+      saveSurveyResponse(newAnswers);
       navigate('/surveys/thank-you');
     }
   };
@@ -93,15 +100,25 @@ const BaseSurvey = ({ entity, questions, entityPath }) => {
   const handlePrevious = () => {
     const prevIndex = getPreviousQuestionIndex(currentQuestionIndex);
     if (prevIndex >= 0) {
-      setCurrentQuestionIndex(prevIndex);
+      setTransitioning(true);
+      setTimeout(() => {
+        setCurrentQuestionIndex(prevIndex);
+        setTransitioning(false);
+      }, 300);
     }
   };
 
   const handleSkip = () => {
     const nextIndex = getNextQuestionIndex(currentQuestionIndex);
     if (nextIndex < totalQuestions) {
-      setCurrentQuestionIndex(nextIndex);
+      setTransitioning(true);
+      setTimeout(() => {
+        setCurrentQuestionIndex(nextIndex);
+        setTransitioning(false);
+      }, 300);
     } else {
+      // Save responses before navigating to thank you page
+      saveSurveyResponse(answers);
       navigate('/surveys/thank-you');
     }
   };
@@ -130,18 +147,45 @@ const BaseSurvey = ({ entity, questions, entityPath }) => {
   // State to manage whether we should skip to next question
   const [shouldSkip, setShouldSkip] = useState(false);
 
+  const saveSurveyResponse = useCallback(async (responses) => {
+    try {
+      const { error } = await supabase
+        .from('survey_responses')
+        .insert([
+          {
+            survey_type: entityPath,
+            responses: responses,
+            created_at: new Date().toISOString()
+          }
+        ]);
+
+      if (error) throw error;
+
+      console.log('Survey response saved successfully');
+    } catch (error) {
+      console.error('Error saving survey response:', error);
+      // Don't prevent navigation to thank you page even if save fails
+    }
+  }, [entityPath]);
+
   // Effect to handle skipping to next valid question
   useEffect(() => {
     if (shouldSkip) {
       const nextIndex = getNextQuestionIndex(currentQuestionIndex);
       if (nextIndex < totalQuestions) {
-        setCurrentQuestionIndex(nextIndex);
+        setTransitioning(true);
+        setTimeout(() => {
+          setCurrentQuestionIndex(nextIndex);
+          setTransitioning(false);
+          setShouldSkip(false);
+        }, 300);
       } else {
+        // Save responses before navigating to thank you page
+        saveSurveyResponse(answers);
         navigate('/surveys/thank-you');
       }
-      setShouldSkip(false);
     }
-  }, [shouldSkip, currentQuestionIndex, totalQuestions, navigate, getNextQuestionIndex]);
+  }, [shouldSkip, currentQuestionIndex, totalQuestions, navigate, getNextQuestionIndex, answers, saveSurveyResponse]);
 
   // Check if current question should be shown
   const isCurrentQuestionVisible = shouldShowQuestion(currentQuestion);
@@ -159,10 +203,11 @@ const BaseSurvey = ({ entity, questions, entityPath }) => {
   // Ensure we don't get stuck in an infinite loop
   useEffect(() => {
     if (currentQuestionIndex >= totalQuestions && totalQuestions > 0) {
-      console.log('Reached end of questions, navigating to thank you');
+      console.log('Reached end of questions, saving responses and navigating to thank you');
+      saveSurveyResponse(answers);
       navigate('/surveys/thank-you');
     }
-  }, [currentQuestionIndex, totalQuestions, navigate]);
+  }, [currentQuestionIndex, totalQuestions, navigate, answers, saveSurveyResponse]);
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
@@ -193,7 +238,7 @@ const BaseSurvey = ({ entity, questions, entityPath }) => {
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
-              className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+              className="bg-indigo-600 h-2 rounded-full transition-all duration-500 ease-out"
               style={{ width: `${progress}%` }}
             ></div>
           </div>
@@ -210,7 +255,10 @@ const BaseSurvey = ({ entity, questions, entityPath }) => {
 
             {questions && questions.length > 0 ? (
               isCurrentQuestionVisible ? (
-                <>
+                <div 
+                  ref={contentRef}
+                  className={`question-transition ${transitioning ? 'opacity-0' : 'opacity-100'}`}
+                >
                   <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 mb-8">
                     {currentQuestion.question}
                   </h1>
@@ -222,7 +270,7 @@ const BaseSurvey = ({ entity, questions, entityPath }) => {
                           <button
                             key={index}
                             onClick={() => handleAnswer(option)}
-                            className="w-full text-left p-4 border border-gray-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+                            className="w-full text-left p-4 border border-gray-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-all duration-200 transform hover:scale-[1.02]"
                           >
                             {option}
                           </button>
@@ -237,12 +285,12 @@ const BaseSurvey = ({ entity, questions, entityPath }) => {
                             <button
                               key={index}
                               onClick={() => handleMultipleSelect(option)}
-                              className={`w-full text-left p-4 border rounded-lg transition-colors flex items-center ${selectedOptions.includes(option)
-                                    ? 'border-indigo-300 bg-indigo-50'
+                              className={`w-full text-left p-4 border rounded-lg transition-all duration-200 flex items-center ${selectedOptions.includes(option)
+                                    ? 'border-indigo-300 bg-indigo-50 transform scale-[1.02]'
                                     : 'border-gray-200 hover:border-indigo-300 hover:bg-indigo-50'
                                   }`}
                             >
-                              <div className={`w-5 h-5 rounded-full border mr-3 flex items-center justify-center ${selectedOptions.includes(option)
+                              <div className={`w-5 h-5 rounded-full border mr-3 flex items-center justify-center transition-all duration-200 ${selectedOptions.includes(option)
                                     ? 'border-indigo-500 bg-indigo-500'
                                     : 'border-gray-300'
                                   }`}>
@@ -258,7 +306,7 @@ const BaseSurvey = ({ entity, questions, entityPath }) => {
                         </div>
                         <button
                           onClick={handleMultipleSubmit}
-                          className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors"
+                          className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-all duration-200 transform hover:scale-105"
                         >
                           Continue
                         </button>
@@ -272,7 +320,7 @@ const BaseSurvey = ({ entity, questions, entityPath }) => {
                             <button
                               key={rating}
                               onClick={() => handleAnswer(rating)}
-                              className="w-12 h-12 flex items-center justify-center border border-gray-200 rounded-full hover:border-indigo-300 hover:bg-indigo-50 transition-colors text-lg font-medium"
+                              className="w-12 h-12 flex items-center justify-center border border-gray-200 rounded-full hover:border-indigo-300 hover:bg-indigo-50 transition-all duration-200 transform hover:scale-110"
                             >
                               {rating}
                             </button>
@@ -289,12 +337,12 @@ const BaseSurvey = ({ entity, questions, entityPath }) => {
                       <div>
                         <textarea
                           placeholder="Type your response here..."
-                          className="w-full p-4 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 min-h-[150px]"
+                          className="w-full p-4 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 min-h-[150px] transition-all duration-200"
                           onBlur={(e) => handleTextAnswer(e.target.value)}
                         ></textarea>
                         <button
                           onClick={() => handleTextAnswer(document.querySelector('textarea')?.value || '')}
-                          className="mt-4 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors"
+                          className="mt-4 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-all duration-200 transform hover:scale-105"
                         >
                           Continue
                         </button>
@@ -305,13 +353,13 @@ const BaseSurvey = ({ entity, questions, entityPath }) => {
                       <div className="flex gap-4">
                         <button
                           onClick={() => handleAnswer('Yes')}
-                          className="flex-1 p-4 border border-gray-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-colors font-medium"
+                          className="flex-1 p-4 border border-gray-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-all duration-200 transform hover:scale-[1.02] font-medium"
                         >
                           Yes
                         </button>
                         <button
                           onClick={() => handleAnswer('No')}
-                          className="flex-1 p-4 border border-gray-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-colors font-medium"
+                          className="flex-1 p-4 border border-gray-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-all duration-200 transform hover:scale-[1.02] font-medium"
                         >
                           No
                         </button>
@@ -324,9 +372,9 @@ const BaseSurvey = ({ entity, questions, entityPath }) => {
                     <button
                       onClick={handlePrevious}
                       disabled={currentQuestionIndex === 0}
-                      className={`px-6 py-2 rounded-lg font-medium ${currentQuestionIndex === 0
+                      className={`px-6 py-2 rounded-lg font-medium transition-all duration-200 ${currentQuestionIndex === 0
                             ? 'text-gray-400 cursor-not-allowed'
-                            : 'text-gray-700 hover:bg-gray-100'
+                            : 'text-gray-700 hover:bg-gray-100 transform hover:scale-105'
                           }`}
                     >
                       ← Previous
@@ -335,7 +383,7 @@ const BaseSurvey = ({ entity, questions, entityPath }) => {
                     <div className="flex gap-3">
                       <button
                         onClick={handleSkip}
-                        className="px-6 py-2 text-gray-600 hover:text-gray-900 font-medium"
+                        className="px-6 py-2 text-gray-600 hover:text-gray-900 font-medium transition-all duration-200 transform hover:scale-105"
                       >
                         Skip
                       </button>
@@ -343,18 +391,23 @@ const BaseSurvey = ({ entity, questions, entityPath }) => {
                         onClick={() => {
                           const nextIndex = getNextQuestionIndex(currentQuestionIndex);
                           if (nextIndex < totalQuestions) {
-                            setCurrentQuestionIndex(nextIndex);
+                            setTransitioning(true);
+                            setTimeout(() => {
+                              setCurrentQuestionIndex(nextIndex);
+                              setTransitioning(false);
+                            }, 300);
                           } else {
+                            saveSurveyResponse(answers);
                             navigate('/surveys/thank-you');
                           }
                         }}
-                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors"
+                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-all duration-200 transform hover:scale-105"
                       >
                         {getNextQuestionIndex(currentQuestionIndex) < totalQuestions ? 'Next →' : 'Finish Survey'}
                       </button>
                     </div>
                   </div>
-                </>
+                </div>
               ) : (
                 // Show loading state when question is being skipped
                 <div className="flex justify-center py-12">
